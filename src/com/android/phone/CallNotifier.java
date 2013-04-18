@@ -468,7 +468,7 @@ public class CallNotifier extends Handler
         // Blacklist handling
         String number = c.getAddress();
         if (TextUtils.isEmpty(number)) {
-            number = "0000";
+            number = Blacklist.PRIVATE_NUMBER;
         }
         if (DBG) log("Incoming number is: " + number);
         // See if the number is in the blacklist
@@ -1294,8 +1294,14 @@ public class CallNotifier extends Handler
             // Set the "type" to be displayed in the call log (see constants in CallLog.Calls)
             final int callLogType;
             if (c.isIncoming()) {
-                callLogType = (cause == Connection.DisconnectCause.INCOMING_MISSED ?
-                               Calls.MISSED_TYPE : Calls.INCOMING_TYPE);
+                if (cause == Connection.DisconnectCause.INCOMING_MISSED) {
+                    callLogType = Calls.MISSED_TYPE;
+                } else if (cause == Connection.DisconnectCause.INCOMING_REJECTED
+                        && PhoneUtils.PhoneSettings.markRejectedCallsAsMissed(mApplication)) {
+                    callLogType = Calls.MISSED_TYPE;
+                } else {
+                    callLogType = Calls.INCOMING_TYPE;
+                }
             } else {
                 callLogType = Calls.OUTGOING_TYPE;
             }
@@ -2402,7 +2408,9 @@ public class CallNotifier extends Handler
         Notification.Builder builder = new Notification.Builder(ctx);
         builder.setSmallIcon(R.drawable.ic_block_contact_holo_dark);
         builder.setContentTitle(res.getString(R.string.blacklist_title));
-        String message = res.getString(R.string.blacklist_notification, number);
+        String message = number.equals(Blacklist.PRIVATE_NUMBER)
+                ? res.getString(R.string.blacklist_notification_private_number)
+                : res.getString(R.string.blacklist_notification, number);
         builder.setContentText(message);
 
         // Add the 'Remove block' notification action only for MATCH_LIST items since
